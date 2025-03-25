@@ -1,0 +1,23 @@
+version: "3"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./storage:/app/storage
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - JWT_SECRET=cambie_esta_clave_secreta
+      - JWT_EXPIRATION=24h
+      - EMAIL_HOST=smtp.suservidor.com
+      - EMAIL_PORT=587
+      - EMAIL_SECURE=false
+      - EMAIL_USER=su_usuario@suservidor.com
+      - EMAIL_PASSWORD=su_contraseña_email
+      - EMAIL_FROM=notificaciones@suempresa.com
