@@ -23,4 +23,4 @@ RUN chmod +x /app/entrypoint.sh
 EXPOSE 3000
 
 # Comando de inicio
-CMD ["/app/entrypoint.sh"]
+CMD ["/bin/sh", "/app/entrypoint.sh"]
