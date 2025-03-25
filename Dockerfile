@@ -1,11 +1,8 @@
-# Dockerfile para el Sistema de Notificación de Altas y Bajas
-# Imagen base: Node.js 20 en Alpine Linux para un tamaño reducido
 FROM node:20-alpine
 
-# Establecer directorio de trabajo
 WORKDIR /app
 
-# Instalar dependencias del sistema
+# Instalar dependencias adicionales
 RUN apk add --no-cache \
     python3 \
     make \
@@ -14,26 +11,38 @@ RUN apk add --no-cache \
     tzdata
 
 # Configurar zona horaria
-ENV TZ=Europe/Paris
-RUN cp /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+RUN cp /usr/share/zoneinfo/Europe/Paris /etc/localtime && echo Europe/Paris > /etc/timezone
 
-# Copiar archivos de configuración de paquetes
-COPY package*.json ./
+# Crear estructura de directorios
+RUN mkdir -p backend frontend migrations storage/db storage/contratos storage/temp
 
-# Instalar dependencias
-RUN npm ci --only=production
+# Copiar archivos de migración
+COPY migrations ./migrations/
 
-# Copiar el código fuente
-COPY . .
+# Copiar código del backend
+COPY backend ./backend/
 
-# Crear directorios necesarios
-RUN mkdir -p /app/storage/contratos /app/storage/temp /app/storage/db
+# Copiar código del frontend
+COPY frontend ./frontend/
 
-# Establecer permisos
-RUN chmod -R 755 /app/storage
+# Instalar dependencias del backend
+WORKDIR /app/backend
+RUN npm install --production
+
+# Instalar dependencias y construir el frontend
+WORKDIR /app/frontend
+RUN npm install
+RUN npm run build
+
+# Volver al directorio principal
+WORKDIR /app
+
+# Copiar script de entrada
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
 
 # Exponer puerto
 EXPOSE 3000
 
-# Comando para iniciar la aplicación
-CMD ["npm", "start"]
+# Comando de inicio
+CMD ["./docker-entrypoint.sh"]
