@@ -19,11 +19,8 @@ RUN mkdir -p backend frontend migrations storage/db storage/contratos storage/te
 # Crear archivos de migración manualmente
 RUN mkdir -p /app/migrations
 
-# Crear archivo schema.sql
-RUN echo "-- Esquema de la base de datos para el Sistema de Notificación de Altas y Bajas
--- Creación de tablas
-
--- Tabla de fisioterapeutas
+# Crear archivo schema.sql (usando cat para evitar problemas con los comentarios --)
+RUN cat > /app/migrations/schema.sql << 'EOL'
 CREATE TABLE fisioterapeuta (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nombre TEXT NOT NULL,
@@ -32,23 +29,53 @@ CREATE TABLE fisioterapeuta (
     finess TEXT NOT NULL,
     fecha_alta DATE NOT NULL,
     fecha_baja DATE,
-    estado TEXT NOT NULL DEFAULT 'ACTIVO', -- ACTIVO o INACTIVO
+    estado TEXT NOT NULL DEFAULT 'ACTIVO',
     fecha_notificacion_alta DATE,
     fecha_notificacion_baja DATE,
     ruta_contrato TEXT,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);" > /app/migrations/schema.sql
+);
+
+CREATE TABLE notificacion (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fisioterapeuta_id INTEGER NOT NULL,
+    tipo TEXT NOT NULL,
+    fecha_envio TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    estado TEXT NOT NULL DEFAULT 'ENVIADO',
+    FOREIGN KEY (fisioterapeuta_id) REFERENCES fisioterapeuta(id)
+);
+
+CREATE TABLE destinatario (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    email TEXT NOT NULL,
+    activo BOOLEAN NOT NULL DEFAULT 1
+);
+
+CREATE TABLE usuario (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    apellidos TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    rol TEXT NOT NULL DEFAULT 'USUARIO',
+    activo BOOLEAN NOT NULL DEFAULT 1,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+EOL
 
 # Crear archivo seed.sql
-RUN echo "-- Datos iniciales para el Sistema de Notificación de Altas y Bajas
--- Inserción de datos de ejemplo
-
--- Destinatarios
+RUN cat > /app/migrations/seed.sql << 'EOL'
 INSERT INTO destinatario (nombre, email) VALUES 
 ('Colegio de Fisioterapeutas', 'cdo31@ordremk.fr'),
 ('Seguridad Social', 'ps.cpam-haute-garonne@assurance-maladie.fr'),
-('Profesional', '');" > /app/migrations/seed.sql
+('Profesional', '');
+
+INSERT INTO usuario (nombre, apellidos, email, password, rol) VALUES 
+('Admin', 'Sistema', 'admin@sistema.com', '$2a$10$1qAz2wSx3eDc4rFv5tGb5t8WGc5wPZXPUoY1cYXvW1cj8zR.6Alu.', 'ADMIN');
+EOL
 
 # Crear estructura básica del backend
 RUN mkdir -p /app/backend/src
@@ -65,7 +92,25 @@ RUN echo 'body {\n  margin: 0;\n  font-family: -apple-system, BlinkMacSystemFont
 RUN echo '{\n  "name": "sistema-notificacion-frontend",\n  "version": "1.0.0",\n  "dependencies": {\n    "react": "^18.2.0",\n    "react-dom": "^18.2.0",\n    "react-router-dom": "^6.18.0",\n    "axios": "^1.6.0"\n  },\n  "scripts": {\n    "start": "react-scripts start",\n    "build": "echo \\"Build completado\\""\n  }\n}' > /app/frontend/package.json
 
 # Crear script de entrada
-RUN echo '#!/bin/sh\n\n# Inicializar la base de datos si no existe\nif [ ! -f /app/storage/db/database.sqlite ]; then\n  echo "Inicializando base de datos..."\n  cd /app\n  mkdir -p /app/storage/db\n  touch /app/storage/db/database.sqlite\n  cat /app/migrations/schema.sql | sqlite3 /app/storage/db/database.sqlite\n  cat /app/migrations/seed.sql | sqlite3 /app/storage/db/database.sqlite\n  echo "Base de datos inicializada correctamente."\nfi\n\n# Iniciar la aplicación\ncd /app/backend\nnode server.js' > /app/docker-entrypoint.sh
+RUN cat > /app/docker-entrypoint.sh << 'EOL'
+#!/bin/sh
+
+# Inicializar la base de datos si no existe
+if [ ! -f /app/storage/db/database.sqlite ]; then
+  echo "Inicializando base de datos..."
+  cd /app
+  mkdir -p /app/storage/db
+  touch /app/storage/db/database.sqlite
+  cat /app/migrations/schema.sql | sqlite3 /app/storage/db/database.sqlite
+  cat /app/migrations/seed.sql | sqlite3 /app/storage/db/database.sqlite
+  echo "Base de datos inicializada correctamente."
+fi
+
+# Iniciar la aplicación
+cd /app/backend
+node server.js
+EOL
+
 RUN chmod +x /app/docker-entrypoint.sh
 
 # Instalar dependencias del backend
