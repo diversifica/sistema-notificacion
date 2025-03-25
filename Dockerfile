@@ -16,8 +16,9 @@ RUN echo 'const express = require("express"); const app = express(); app.get("/"
 RUN echo 'const app = require("./src/app"); const PORT = process.env.PORT || 3000; app.listen(PORT, () => console.log(`Servidor iniciado en puerto ${PORT}`));' > /app/backend/server.js
 
 # Crear script de entrada
-RUN echo '#!/bin/sh\ncd /app/backend\nnpm install\nnode server.js' > /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+RUN echo '#!/bin/sh\ncd /app/backend\nnpm install\nnode server.js' > /app/entrypoint.sh && \
+    chmod +x /app/entrypoint.sh && \
+    ls -la /app/entrypoint.sh
 
 # Exponer puerto
 EXPOSE 3000
